@@ -167,11 +167,3 @@ real-time-cdc-pipeline/
 - Python 3.9+
 - Dependencies: `pip install -r requirements.txt`
 
-## 📝 License
-
-[Your License Here]
-
-## 👥 Contributors
-
-[Your Name/Team]
-
