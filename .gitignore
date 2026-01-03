@@ -46,6 +46,9 @@ Thumbs.db
 # Schema history (Debezium)
 schema_history/
 
+# Connector configs with passwords (use .example instead)
+debezium-connector-config/mysql-connector.json
+
 # dbt
 dbt_project/*/target/
 dbt_project/*/logs/
