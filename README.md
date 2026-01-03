@@ -45,12 +45,47 @@ python py_script/check_connector_status.py
 python py_script/check_kafka_topics.py
 ```
 
+## 🔍 Akses Data ODS
+
+### Via psql (Command Line)
+
+```bash
+# Akses PostgreSQL container
+docker exec -it postgres psql -U ods_user -d ods_db
+
+# Query examples
+SELECT COUNT(*) FROM customers;
+SELECT * FROM customers LIMIT 10;
+\q  # Exit
+```
+
+### Via Python Script
+
+```bash
+# Interactive mode
+python py_script/query_ods.py interactive
+
+# Quick commands
+python py_script/query_ods.py count
+python py_script/query_ods.py sample customers 10
+python py_script/query_ods.py latest 20
+```
+
+### Via GUI Tools
+
+- **pgAdmin**: https://www.pgadmin.org/
+- **DBeaver**: https://dbeaver.io/
+
+Connection:
+- Host: `localhost`
+- Port: `5432`
+- Database: `ods_db`
+- Username: `ods_user`
+- Password: (dari `.env` file)
+
 ## 📚 Documentation
 
 - **[ARCHITECTURE.md](ARCHITECTURE.md)** - Arsitektur lengkap pipeline
-- **[README_SETUP.md](README_SETUP.md)** - Setup guide step-by-step
-- **[README_ODS_ACCESS.md](README_ODS_ACCESS.md)** - Cara akses data ODS
-- **[README_GIT_SETUP.md](README_GIT_SETUP.md)** - Setup untuk Git repository
 
 ## 🔧 Configuration
 
@@ -90,11 +125,14 @@ Edit `mysql-connector.json` sesuai dengan environment Anda.
 ## 📁 Project Structure
 
 ```
-mini-poc-stack/
+real-time-cdc-pipeline/
 ├── docker-compose.yml              # Service definitions
 ├── ods_schema.sql                  # PostgreSQL schema
+├── mks_finance_dw.sql              # MySQL schema
 ├── env.example                     # Environment template
 ├── requirements.txt                # Python dependencies
+├── README.md                       # Main documentation
+├── ARCHITECTURE.md                 # Architecture documentation
 │
 ├── debezium-connector-config/
 │   ├── mysql-connector.json        # CDC connector config (create from .example)
@@ -102,7 +140,7 @@ mini-poc-stack/
 │
 └── py_script/
     ├── setup_cdc.py                # Setup CDC connector
-    ├── custom_ods_sink.py          # Custom consumer
+    ├── custom_ods_sink.py          # Custom consumer (main sink)
     ├── setup_full_pipeline.py      # Full pipeline setup
     ├── reset_all.py                # Reset/cleanup
     ├── verify_ods.py               # Verify ODS data
@@ -114,8 +152,14 @@ mini-poc-stack/
 ## 🔐 Security
 
 - **Never commit `.env` file** - Sudah di-ignore oleh `.gitignore`
+- **Never commit `mysql-connector.json`** - Berisi password, gunakan `.example` sebagai template
 - **Use strong passwords** - Generate secure passwords untuk production
 - **Rotate credentials** - Regularly update passwords
+
+## 📝 Notes
+
+- Folder `data/`, `dbt_project/`, dan `dbt_profiles/` tidak digunakan di docker-compose.yml dan sudah di-ignore oleh `.gitignore`
+- File temporary documentation sudah dihapus dan informasi penting digabung ke README.md
 
 ## 🛠️ Requirements
 

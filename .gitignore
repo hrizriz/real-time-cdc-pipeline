@@ -49,8 +49,7 @@ schema_history/
 # Connector configs with passwords (use .example instead)
 debezium-connector-config/mysql-connector.json
 
-# dbt
-dbt_project/*/target/
-dbt_project/*/logs/
-dbt_project/*/.dbt/
+# dbt (not used in docker-compose)
+dbt_project/
+dbt_profiles/
 
