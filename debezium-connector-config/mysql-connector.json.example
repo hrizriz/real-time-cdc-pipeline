@@ -1,0 +1,28 @@
+{
+  "name": "${DEBEZIUM_CONNECTOR_NAME:-your-connector-name}",
+  "config": {
+    "connector.class": "io.debezium.connector.mysql.MySqlConnector",
+    "tasks.max": "1",
+    "database.hostname": "mysql",
+    "database.port": "3306",
+    "database.user": "root",
+    "database.password": "${MYSQL_ROOT_PASSWORD:-your_root_password}",
+    "database.server.id": "${DEBEZIUM_DATABASE_SERVER_ID:-184054}",
+    "topic.prefix": "${DEBEZIUM_TOPIC_PREFIX:-your_topic_prefix}",
+    "database.include.list": "${DEBEZIUM_DATABASE_NAME:-your_database_name}",
+    "table.include.list": "${DEBEZIUM_DATABASE_NAME:-your_database_name}.customers,${DEBEZIUM_DATABASE_NAME:-your_database_name}.credit_applications,${DEBEZIUM_DATABASE_NAME:-your_database_name}.vehicle_ownership",
+    "snapshot.mode": "initial",
+    "snapshot.locking.mode": "minimal",
+    "incremental.snapshot.enabled": "true",
+    "signal.data.collection": "${DEBEZIUM_DATABASE_NAME:-your_database_name}.debezium_signal",
+    "schema.history.internal": "io.debezium.storage.file.history.FileSchemaHistory",
+    "schema.history.internal.file.filename": "/tmp/schema-history.json",
+    "include.schema.changes": "false",
+    "transforms": "unwrap",
+    "transforms.unwrap.type": "io.debezium.transforms.ExtractNewRecordState",
+    "transforms.unwrap.drop.tombstones": "false",
+    "transforms.unwrap.delete.handling.mode": "rewrite",
+    "transforms.unwrap.add.fields": "op,source.ts_ms,source.table"
+  }
+}
+

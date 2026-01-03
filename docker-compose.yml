@@ -1,0 +1,182 @@
+version: "3.8"
+
+services:
+  # ==================================================
+  # MYSQL
+  # ==================================================
+  mysql:
+    image: mysql:8.0
+    container_name: mysql
+    restart: unless-stopped
+    command:
+      - --server-id=1
+      - --log-bin=mysql-bin
+      - --binlog-format=ROW
+      - --binlog-row-image=FULL
+      - --gtid-mode=ON
+      - --enforce-gtid-consistency=ON
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root_password123}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-mks_finance_dw}
+      MYSQL_USER: ${MYSQL_USER:-app_user}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-app_pwd}
+      MYSQL_ROOT_HOST: "%"
+    ports:
+      - "3306:3306"
+    volumes:
+      - ./mysql_data:/var/lib/mysql
+      - ./mks_finance_dw.sql:/docker-entrypoint-initdb.d/mks_finance_dw.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "mysql -uroot -p${MYSQL_ROOT_PASSWORD:-root_password123} -e 'SELECT 1' || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    networks: [data-net]
+
+  # ==================================================
+  # ZOOKEEPER
+  # ==================================================
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.5.0
+    container_name: zookeeper
+    restart: unless-stopped
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - "2182:2181"
+    networks: [data-net]
+
+  # ==================================================
+  # KAFKA
+  # ==================================================
+  kafka:
+    image: confluentinc/cp-kafka:7.5.0
+    container_name: kafka
+    restart: unless-stopped
+    depends_on:
+      zookeeper:
+        condition: service_started
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092,PLAINTEXT_INTERNAL://kafka:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_INTERNAL:PLAINTEXT
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,PLAINTEXT_INTERNAL://0.0.0.0:29092
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT_INTERNAL
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+    healthcheck:
+      test: ["CMD-SHELL", "kafka-broker-api-versions --bootstrap-server localhost:9092 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    networks: [data-net]
+
+  # ==================================================
+  # KAFKA CONNECT (DEBEZIUM + JDBC SINK)
+  # ==================================================
+  kafka-connect:
+    image: debezium/connect:2.4
+    container_name: kafka-connect
+    restart: unless-stopped
+    depends_on:
+      kafka:
+        condition: service_healthy
+      mysql:
+        condition: service_started
+      postgres:
+        condition: service_healthy
+    ports:
+      - "8083:8083"
+    environment:
+      BOOTSTRAP_SERVERS: kafka:29092
+      GROUP_ID: 1
+      CONFIG_STORAGE_TOPIC: my_connect_configs
+      OFFSET_STORAGE_TOPIC: my_connect_offsets
+      STATUS_STORAGE_TOPIC: my_connect_statuses
+      CONFIG_STORAGE_REPLICATION_FACTOR: 1
+      OFFSET_STORAGE_REPLICATION_FACTOR: 1
+      STATUS_STORAGE_REPLICATION_FACTOR: 1
+      # Plugin path untuk JDBC Sink Connector
+      CONNECT_PLUGIN_PATH: /kafka/connect,/kafka/connect/confluent-hub-components,/usr/share/confluent-hub-components
+    command:
+      - bash
+      - -c
+      - |
+        # Install Confluent Hub Client jika belum ada
+        if ! command -v confluent-hub &> /dev/null; then
+          echo "Installing Confluent Hub Client..."
+          curl -L https://cnfl.io/cli | sh -s -- -b /usr/local/bin
+        fi
+        # Install JDBC Sink Connector
+        echo "Installing JDBC Sink Connector..."
+        confluent-hub install --no-prompt --component-dir /kafka/connect/confluent-hub-components confluentinc/kafka-connect-jdbc:10.7.4 || echo "JDBC connector mungkin sudah terinstall"
+        # Start Kafka Connect dengan entrypoint original
+        /docker-entrypoint.sh start
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8083/connectors"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 90s
+    volumes:
+      - ./debezium-connector-config:/kafka/connect/debezium-connector-config
+      - schema_history:/tmp
+    networks: [data-net]
+
+  # ==================================================
+  # KAFKA UI
+  # ==================================================
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: kafka-ui
+    restart: unless-stopped
+    depends_on:
+      - kafka
+      - kafka-connect
+    ports:
+      - "8080:8080"
+    environment:
+      KAFKA_CLUSTERS_0_NAME: mks-finance-cluster
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:29092
+      KAFKA_CLUSTERS_0_KAFKACONNECT_0_NAME: debezium-connect
+      KAFKA_CLUSTERS_0_KAFKACONNECT_0_ADDRESS: http://kafka-connect:8083
+    networks: [data-net]
+
+  # ==================================================
+  # ODS (Operational Data Store) - PostgreSQL
+  # ==================================================
+  postgres:
+    image: postgres:16
+    container_name: postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-ods_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-ods_pwd}
+      POSTGRES_DB: ${POSTGRES_DB:-ods_db}
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./ods_data:/var/lib/postgresql/data
+      - ./ods_schema.sql:/docker-entrypoint-initdb.d/ods_schema.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "psql -U ods_user -d ods_db -c 'SELECT 1' || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 30s
+    networks: [data-net]
+
+volumes:
+  schema_history:
+    driver: local
+
+networks:
+  data-net:
+    driver: bridge
+

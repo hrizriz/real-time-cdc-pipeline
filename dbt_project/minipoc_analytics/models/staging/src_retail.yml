@@ -1,0 +1,11 @@
+version: 2
+
+sources:
+  - name: retail_source
+    database: pgsql_db
+    schema: raw_zone # Pastikan ini nama schema tempat data mentah berada
+    tables:
+      - name: sales_transaction_raw
+      - name: customers_raw
+      - name: products_raw
+      - name: stores_raw

@@ -1,0 +1,10 @@
+version: 2
+
+sources:
+  - name: stg_lyr
+    schema: stg_lyr
+    tables:
+      - name: customers_clean
+      - name: products_clean
+      - name: stores_clean
+      - name: sales_transaction_clean
