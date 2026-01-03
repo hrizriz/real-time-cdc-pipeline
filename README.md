@@ -149,18 +149,6 @@ real-time-cdc-pipeline/
     └── query_ods.py                # Query ODS helper
 ```
 
-## 🔐 Security
-
-- **Never commit `.env` file** - Sudah di-ignore oleh `.gitignore`
-- **Never commit `mysql-connector.json`** - Berisi password, gunakan `.example` sebagai template
-- **Use strong passwords** - Generate secure passwords untuk production
-- **Rotate credentials** - Regularly update passwords
-
-## 📝 Notes
-
-- Folder `data/`, `dbt_project/`, dan `dbt_profiles/` tidak digunakan di docker-compose.yml dan sudah di-ignore oleh `.gitignore`
-- File temporary documentation sudah dihapus dan informasi penting digabung ke README.md
-
 ## 🛠️ Requirements
 
 - Docker & Docker Compose
